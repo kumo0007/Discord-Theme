@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Midnight Pulse — Local Preview</title>
+  <link rel="stylesheet" href="../MidnightPulse.theme.css" />
+  <style>
+    /* Preview-only scaffolding that mimics Discord regions without claiming to be Discord. */
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; }
+    #app-mount {
+      min-height: 100%;
+      display: grid;
+      grid-template-columns: 72px 240px minmax(0, 1fr) 220px;
+      grid-template-rows: 48px minmax(0, 1fr) 68px;
+      grid-template-areas:
+        "guilds sidebar title title"
+        "guilds sidebar chat members"
+        "guilds sidebar composer members";
+      color: var(--pokemon-text-primary);
+    }
+    .guilds_preview { grid-area: guilds; padding: 12px 8px; display: flex; flex-direction: column; gap: 10px; }
+    .sidebar_preview { grid-area: sidebar; padding: 12px; display: flex; flex-direction: column; }
+    .title_container { grid-area: title; display: flex; align-items: center; padding: 0 16px; gap: 12px; }
+    .chat_preview { grid-area: chat; padding: 16px 20px; overflow: auto; }
+    .membersWrap_preview { grid-area: members; padding: 12px; overflow: auto; }
+    .composer_preview { grid-area: composer; padding: 0 16px 12px; }
+    .pill { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; }
+    .childWrapper_preview { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; font-weight: 700; }
+    .channel { margin: 4px 0; border-radius: 8px; color: var(--pokemon-text-secondary); cursor: pointer; }
+    .channel .link_preview { display: block; padding: 8px 10px; border-radius: 8px; }
+    .message_preview { padding: 10px 12px; margin-bottom: 8px; border-radius: 8px; }
+    .username_preview { font-weight: 700; margin-right: 8px; }
+    .timestamp_preview { font-size: 12px; }
+    .markup_preview { margin-top: 4px; line-height: 1.45; }
+    .member_preview { padding: 8px; margin-bottom: 4px; border-radius: 8px; color: var(--pokemon-text-secondary); }
+    .channelTextArea_preview.scrollableContainer_themed {
+      padding: 12px 14px; min-height: 44px; color: var(--pokemon-text-muted);
+    }
+    .btnRow { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .lookFilled_x.colorBrand_x, .lookFilled_x.colorRed_x {
+      border: 0; padding: 10px 14px; font-weight: 600; cursor: pointer;
+    }
+    button:not([class*="lookFilled"]) {
+      background: var(--pokemon-bg-tertiary);
+      color: var(--pokemon-text-primary);
+      border: 1px solid var(--pokemon-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+    .menu_preview { margin-top: 16px; padding: 8px; max-width: 260px; }
+    .menu_preview [role="menuitem"] { display: block; padding: 8px 10px; border-radius: 6px; }
+    .searchBar_preview { margin-left: auto; padding: 6px 10px; min-width: 180px; color: var(--pokemon-text-muted); }
+    .note { font-size: 12px; color: var(--pokemon-text-muted); margin-top: 18px; max-width: 60ch; }
+    .panels_preview { margin-top: auto; padding-top: 12px; }
+    @media (max-width: 920px) {
+      #app-mount {
+        grid-template-columns: 64px minmax(0, 1fr);
+        grid-template-rows: 48px minmax(0, 1fr) 68px;
+        grid-template-areas:
+          "guilds title"
+          "guilds chat"
+          "guilds composer";
+      }
+      .sidebar_preview, .membersWrap_preview { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app-mount">
+    <nav class="guilds_preview guilds_x" aria-label="Servers sidebar">
+      <div class="childWrapper_preview pill" tabindex="0">MP</div>
+      <div class="childWrapper_preview" tabindex="0">⚡</div>
+      <div class="childWrapper_preview" tabindex="0">+</div>
+    </nav>
+
+    <aside class="sidebar_preview sidebar_c48ade">
+      <strong style="color: var(--pokemon-text-primary)">Midnight Pulse</strong>
+      <div class="channel modeSelected_preview" aria-selected="true">
+        <span class="link_preview name_preview"># general</span>
+      </div>
+      <div class="channel"><span class="link_preview name_preview"># gym-battles</span></div>
+      <div class="channel unread_preview modeUnreadImportant_preview"><span class="name_preview link_preview"># night-watch</span></div>
+      <div class="panels_preview panels_x">@trainer</div>
+    </aside>
+
+    <header class="title_container title_container_x">
+      <span># general</span>
+      <div class="searchBar_preview searchBar_x" role="search">Search</div>
+    </header>
+
+    <main class="chat_preview chat_d75def">
+      <article class="message_preview message_x">
+        <span class="username_preview">Ashen</span>
+        <span class="timestamp_preview">Today at 7:00 PM</span>
+        <div class="markup_preview messageContent_x">Primary chat text should stay readable over the night atmosphere.</div>
+      </article>
+      <article class="message_preview message_x mentioned_preview mentioned_x">
+        <span class="username_preview">Mist</span>
+        <span class="timestamp_preview">Today at 7:01 PM</span>
+        <div class="markup_preview messageContent_x">Mention styling uses a red inset bar so it is not color-only.</div>
+      </article>
+      <article class="message_preview message_x">
+        <span class="username_preview">Bolt</span>
+        <span class="timestamp_preview">Today at 7:02 PM</span>
+        <div class="markup_preview messageContent_x">Secondary text sample: <span style="color: var(--pokemon-text-secondary)">channel topic and timestamps</span> · <span style="color: var(--pokemon-text-muted)">muted metadata</span></div>
+        <div class="markup_preview messageContent_x"><a class="anchor_x" href="#">Link accent sample</a></div>
+      </article>
+
+      <div class="btnRow">
+        <button class="lookFilled_x colorBrand_x" type="button">Brand button</button>
+        <button class="lookFilled_x colorRed_x" type="button">Danger</button>
+        <button type="button">Focus me</button>
+      </div>
+
+      <div class="menu_preview menu_x" role="menu">
+        <div role="menuitem" tabindex="0">Copy Message</div>
+        <div role="menuitem" tabindex="0">Mark Unread</div>
+      </div>
+
+      <p class="note">
+        Local structural preview only. Official Discord without BetterDiscord/Vencord cannot load this theme.
+        Hashed Discord class names change over time; this harness validates tokens, contrast, focus, and atmosphere.
+      </p>
+    </main>
+
+    <aside class="membersWrap_preview membersWrap_x">
+      <div class="member_preview">Online — Cyan</div>
+      <div class="member_preview member_selected selected_x">Selected member</div>
+      <div class="member_preview">Idle — Ember</div>
+    </aside>
+
+    <div class="composer_preview">
+      <div class="channelTextArea_preview scrollableContainer_themed">Message #general</div>
+    </div>
+  </div>
+</body>
+</html>
