@@ -1,6 +1,6 @@
 # Midnight Pulse — Pokémon-inspired Discord Theme
 
-Unofficial, fan-made Discord theme: midnight navy / deep violet, electric cyan accents, restrained Poké Ball red, and a soft night atmosphere behind translucent panels.
+Unofficial, fan-made Discord theme: midnight navy / deep violet, electric cyan accents, restrained Poké Ball red, and a **dense multi-character** night atmosphere — recognizable Pokémon-inspired companions across the home background, **central chat column**, server list, and members panel (v1.3.0).
 
 **Not affiliated with, endorsed by, or officially supported by Discord, Nintendo, Game Freak, or The Pokémon Company.**
 
@@ -8,7 +8,9 @@ Unofficial, fan-made Discord theme: midnight navy / deep violet, electric cyan a
 
 ## What it changes
 
-- App atmosphere (embedded artwork + CSS gradient fallback)
+- App atmosphere (multi-character embedded artwork + CSS gradient fallback)
+- Distinct companion art on server-list and members columns (not the same image repeated)
+- Dense chat-column artwork with light wash + per-message translucent scrims (center is not left empty)
 - Guild list, channel list, chat, composer, headers
 - Member list / user panels
 - Buttons, links, badges, hover/selected states
@@ -34,10 +36,20 @@ macOS / Linux:
 
 BetterDiscord and Vencord inject theme CSS into the Discord UI. **Relative paths like `./assets/...` and local `file://` URLs generally do not load** from that injected CSS.
 
-Midnight Pulse therefore **embeds** `assets/pokemon-discord-background.webp` as a `data:image/webp;base64,...` value in `--pokemon-bg-image`. That keeps a single portable `.theme.css` file working offline without inventing a hosted CDN URL.
+Midnight Pulse therefore **embeds** four optimized WebPs as `data:image/webp;base64,...` values:
 
-- Source artwork remains in `assets/` for regeneration (`python scripts/embed_background.py`).
-- If the image layer is disabled or fails, `--pokemon-bg-overlay` + `--pokemon-bg-fallback` still paint a cohesive atmosphere.
+| Token | Source asset | Where it shows |
+|-------|--------------|----------------|
+| `--pokemon-bg-image` | `pokemon-discord-background.webp` | App shell / home atmosphere |
+| `--pokemon-guild-image` | `pokemon-guild-panel.webp` | Server-list column |
+| `--pokemon-members-image` | `pokemon-members-panel.webp` | Members column |
+| `--pokemon-chat-accent-image` | `pokemon-chat-accent.webp` | Central chat column (multi-character; messages use local scrims) |
+
+That keeps a single portable `.theme.css` file working offline without inventing a hosted CDN URL.
+
+- Source artwork remains in `assets/` for regeneration (`python3 scripts/embed_background.py`).
+- If image layers are disabled or fail, `--pokemon-bg-overlay` + `--pokemon-bg-fallback` still paint a cohesive atmosphere.
+- Narrow viewports drop photo layers and keep the gradient fallback for clarity.
 
 ## Installation
 
@@ -77,13 +89,19 @@ Edit tokens at the top of `MidnightPulse.theme.css`:
 | `--pokemon-text-primary` / `--pokemon-text-secondary` / `--pokemon-text-muted` | Text |
 | `--pokemon-accent-primary` / `--pokemon-accent-secondary` | Cyan / red accents |
 | `--pokemon-border` | Dividers |
-| `--pokemon-bg-image` | Artwork (`data:` URI by default) |
+| `--pokemon-bg-image` | Main multi-character scene (`data:` URI) |
+| `--pokemon-guild-image` / `--pokemon-members-image` / `--pokemon-chat-accent-image` | Column / chat companion art |
 | `--pokemon-bg-fallback` | Pure CSS atmosphere if art is off |
+| `--pokemon-chat-readability` / `--pokemon-panel-scrim` | Light column washes (not a heavy center blank) |
+| `--pokemon-message-scrim` / `--pokemon-message-scrim-hover` | Per-message translucent plates for readable text over art |
 
 Disable artwork (keep gradient atmosphere):
 
 ```css
 --pokemon-bg-image: linear-gradient(transparent, transparent);
+--pokemon-guild-image: linear-gradient(transparent, transparent);
+--pokemon-members-image: linear-gradient(transparent, transparent);
+--pokemon-chat-accent-image: linear-gradient(transparent, transparent);
 ```
 
 Use your own hosted image (you must supply a real URL you control — this project does not ship a CDN link):
@@ -92,11 +110,11 @@ Use your own hosted image (you must supply a real URL you control — this proje
 --pokemon-bg-image: url("https://example.com/your-image.webp");
 ```
 
-Regenerate the embedded artwork from `assets/` after replacing the WebP:
+Regenerate embedded artwork from `assets/` after replacing any WebP:
 
 ```bash
-python scripts/embed_background.py
-python scripts/qa_check.py
+python3 scripts/embed_background.py
+python3 scripts/qa_check.py
 ```
 
 ## Verified vs unverified
@@ -105,8 +123,8 @@ python scripts/qa_check.py
 
 - BetterDiscord/Vencord meta header (`@name`, `@author`, `@description`, `@version`) and `*.theme.css` filename
 - CSS brace/string balance and required design tokens
-- Embedded WebP data URI matches `assets/pokemon-discord-background.webp`
-- Gradient overlay + fallback present; no remote tracking URLs
+- Four embedded WebP data URIs match their `assets/*.webp` sources (idempotent re-embed)
+- Gradient overlay + fallback + chat readability scrub present; no remote tracking URLs
 - Local contrast checks and preview harness (`preview/index.html`)
 - `scripts/qa_check.py` structural suite
 
@@ -127,8 +145,9 @@ Official Discord was detected locally; BetterDiscord and Vencord were **not**. D
 |-------|-------------|
 | Theme missing from the list | Filename must end with `.theme.css`; meta block must be the first bytes of the file; restart the client |
 | Theme on but looks stock | Appearance = Dark; disable other themes; confirm MidnightPulse is toggled on |
-| No background artwork | Embedded data URI should show by default. If you cleared `--pokemon-bg-image`, restore via `python scripts/embed_background.py`, or set a URL you host. Gradient fallback should still appear |
-| Artwork too strong / chat hard to read | Increase opacity in `--pokemon-bg-overlay`, or disable artwork (transparent gradient trick above) |
+| No background artwork | Embedded data URIs should show by default. Restore via `python3 scripts/embed_background.py`, or set URLs you host. Gradient fallback should still appear |
+| Artwork too strong / chat hard to read | Raise `--pokemon-message-scrim` opacity, slightly strengthen `--pokemon-chat-readability`, or disable artwork (transparent gradient trick above) |
+| Chat center looks empty | Ensure v1.3.0+ theme file is loaded; chat art should populate the center behind message scrims |
 | Layout odd after a Discord update | Disable the theme; Discord class hashes may have changed — variable overrides usually survive longer than attribute selectors |
 
 ## Live integration test (exact steps)
@@ -158,14 +177,18 @@ Use these steps on a machine that already has BetterDiscord **or** Vencord:
 │   └── index.html               # local harness only — not a Discord client
 └── assets/
     ├── README.md
-    └── pokemon-discord-background.webp   # source for embed; not required at install time
+    ├── pokemon-discord-background.webp   # main multi-character scene
+    ├── pokemon-guild-panel.webp          # server-list art
+    ├── pokemon-members-panel.webp        # members-column art
+    └── pokemon-chat-accent.webp          # chat edge accent
 ```
+
 
 ### Local structural preview (optional)
 
 ```bash
-python scripts/qa_check.py
-python -m http.server 8765 --directory .
+python3 scripts/qa_check.py
+python3 -m http.server 8765 --directory .
 ```
 
 Open `http://127.0.0.1:8765/preview/`. This checks tokens/atmosphere only.

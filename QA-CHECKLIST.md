@@ -1,67 +1,58 @@
 # Midnight Pulse — Integration-readiness QA
 
-Theme version under audit: **1.0.3**
+Theme version under audit: **1.3.0**
 
 ## Verified (local / structural)
 
 | Check | Result | Notes |
 |-------|--------|-------|
-| Meta header `@name` / `@author` / `@description` / `@version` | PASS | JSDoc block at file start; name `MidnightPulse` |
+| Meta header `@name` / `@author` / `@description` / `@version` | PASS | Version 1.3.0 |
 | Filename `MidnightPulse.theme.css` | PASS | BD/Vencord convention |
 | CSS brace / string balance | PASS | `scripts/qa_check.py` |
-| Discord variable bridge (legacy + newer tokens) | PASS | Includes `--background-*`, `--bg-*`, `--background-base-*`, `--text-default` |
-| Embedded WebP data URI matches `assets/` source | PASS | Reliable BD/Vencord strategy (no relative/file URL) |
-| Gradient overlay + fallback present | PASS | Works when artwork disabled |
-| No `background-attachment: fixed` | PASS | Removed for Electron stability |
-| No remote tracking / http(s) `url()` in theme | PASS | |
-| Focus-visible + reduced-motion rules | PASS | |
-| Username role-color override absent | PASS | Compatibility fix in 1.0.3 |
-| Overly broad transparent/`clickable` hover narrowed | PASS | Compatibility fix in 1.0.3 |
-| README separates verified vs UNVERIFIED; BD vs Vencord steps | PASS | |
-| Contrast spot-check (prior run) | PASS | Primary/secondary/muted/link ≥ 6:1 on main surfaces |
-| Local preview harness | PASS | Atmosphere only — not a Discord client |
+| Four embedded WebP data URIs match `assets/` sources | PASS | main / guild / members / chat |
+| Embed script idempotent (second run unchanged) | PASS | Full `url("...")` match |
+| Light chat wash + per-message scrims | PASS | Preserved from 1.2.0 |
+| Gradient fallback + panel scrims + star-dust sizing | PASS | |
+| No remote tracking / http(s) `url()` | PASS | |
+| Focus-visible + reduced-motion | PASS | |
+| Username role-color override absent | PASS | |
+| Contrast spot-check | PASS | |
+| Preview uses realistic sample chat (no QA-instruction copy) | PASS | |
+| Local preview harness | PASS | Not a Discord client |
 
 ## UNVERIFIED (live client)
 
 | Check | Result | Notes |
 |-------|--------|-------|
-| BetterDiscord Themes UI loads MidnightPulse | **UNVERIFIED** | BetterDiscord not installed |
-| Vencord Themes UI loads MidnightPulse | **UNVERIFIED** | Vencord not installed |
-| Chat / channels / composer / menus / settings in real Discord | **UNVERIFIED** | |
-| Background art visible in injected CSS environment | **UNVERIFIED** | Data URI expected to work; not observed live |
-| Post-Discord-update selector durability | **UNVERIFIED** | |
+| BetterDiscord / Vencord Themes UI | **UNVERIFIED** | Not installed here |
+| Real Discord chat / menus / settings | **UNVERIFIED** | |
+| Artwork recognizability in injected CSS | **UNVERIFIED** | Expected via data URIs |
 
-## Asset strategy decision
+## 1.3.0 changes vs 1.2.0
 
-| Approach | BD/Vencord reality | Chosen? |
-|----------|--------------------|---------|
-| Relative `./assets/...` | Generally fails (injected `<style>`, no theme-file base URL) | No (default) |
-| `file://` absolute path | Generally blocked / unreliable | No |
-| Invented CDN/host URL | Forbidden by audit prompt | No |
-| Embedded `data:image/webp;base64,...` | Works offline in a single `.theme.css` | **Yes (default)** |
-| CSS gradient fallback | Always available under artwork layer | **Yes** |
+1. Regenerated all four artwork scenes with a broader, more recognizable Pokémon-inspired cast (distributed across main / chat / guild / members; avoid same character repeated in every panel).
+2. Replaced generic fantasy humanoid leanings in the members panel with creature companions (jackal warrior, elegant guardian, night fox, ribbon fox).
+3. Kept Midnight Pulse identity: navy/violet/cyan/red, message scrims, layout, responsive narrow fallback.
+4. Preview copy rewritten as a realistic #general conversation; developer QA notes removed from the client-facing harness.
+5. Re-optimized WebPs and re-embedded; embed remains idempotent.
 
-## Bugs found & fixed in this audit
+## Artwork distribution (intent)
 
-1. Relative asset URL was not a reliable BD/Vencord strategy → embedded optimized WebP data URI.
-2. Broad transparent rule included `[class*="container_"][class*="themed"]` (risk to settings/surfaces) → removed.
-3. Broad `[class*="container_"][class*="clickable"]:hover` → removed.
-4. Forced `[class*="username_"]` color broke Discord role colors → removed.
-5. Docs implied relative assets might work on Vencord by default → clarified as generally unsupported; install = single file.
-6. **Pre-release:** `scripts/embed_background.py` used `[^;]+`, which truncated at the semicolon inside `data:image/webp;base64,...` and corrupted the theme on re-embed → fixed to match full `url("...")`; QA now rejects duplicate/oversized embeds. Regeneration is idempotent.
+| Scene | Intended cast focus |
+|-------|---------------------|
+| Main | Yellow mouse, orange dragon-lizard, purple ghost, blue jackal warrior, sleepy round beast, brown fox |
+| Chat | Blue ninja frog, pale psychic biped, black ringed fox, ribbon fox, gem-forehead fox, green-white guardian |
+| Guild | Yellow mouse, purple ghost, brown fox |
+| Members | Blue jackal warrior, green-white guardian, black ringed fox, ribbon fox |
 
 ## Re-run local QA
 
 ```bash
-python scripts/qa_check.py
-python scripts/embed_background.py   # only after replacing the WebP
+python3 scripts/qa_check.py
+python3 scripts/embed_background.py   # only after replacing WebPs
 ```
-
-## Live integration test steps
-
-See README → **Live integration test (exact steps)**. Requires BetterDiscord or Vencord installed and the theme enabled in that client.
 
 ## Sign-off
 
 - Structural / asset-strategy / documentation audit: **complete**
-- Live BetterDiscord or Vencord integration: **UNVERIFIED** — not claimed production-verified
+- Live BetterDiscord or Vencord integration: **UNVERIFIED**

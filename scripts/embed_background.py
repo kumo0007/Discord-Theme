@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Embed assets/pokemon-discord-background.webp into MidnightPulse.theme.css as a data URI.
+"""Embed Pokémon WebP assets into MidnightPulse.theme.css as data URIs.
 
-Idempotent: safe to re-run. Matches the full url("...") value, including data URIs that
-contain semicolons (data:image/webp;base64,...).
+Idempotent: safe to re-run. Matches the full url("...") value, including data URIs
+that contain semicolons (data:image/webp;base64,...). Never uses [^;]+ on the value.
 """
 
 from __future__ import annotations
@@ -10,67 +10,140 @@ from __future__ import annotations
 import base64
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSET = ROOT / "assets" / "pokemon-discord-background.webp"
 THEME = ROOT / "MidnightPulse.theme.css"
+THEME_VERSION = "1.3.0"
 
-# Complete healthy declaration (comment + url("...")).
-TOKEN_PATTERN = re.compile(
-    r"/\* Background artwork.*?\*/\s*--pokemon-bg-image:\s*url\(\"[^\"]*\"\)\s*;",
-    flags=re.S,
-)
 
-# Recovery: comment through whatever broken content until the next known token.
-REPAIR_PATTERN = re.compile(
-    r"/\* Background artwork.*?(?=\n\s*--pokemon-bg-overlay:)",
-    flags=re.S,
-)
+@dataclass(frozen=True)
+class ArtworkSlot:
+    key: str  # e.g. "main"
+    asset: Path
+    var_name: str  # e.g. "--pokemon-bg-image"
+    header: str
 
-HEADER = """/* Background artwork strategy (BD/Vencord):
+
+SLOTS: tuple[ArtworkSlot, ...] = (
+    ArtworkSlot(
+        key="main",
+        asset=ROOT / "assets" / "pokemon-discord-background.webp",
+        var_name="--pokemon-bg-image",
+        header="""/* ARTWORK:main — primary multi-character night scene (BD/Vencord):
      Relative file paths and file:// URLs generally do NOT load from injected theme CSS.
-     The optimized WebP is embedded as a data URI so the theme remains a single portable
-     .theme.css file. Source file kept at assets/pokemon-discord-background.webp.
+     Optimized WebP is embedded as a data URI so the theme remains a single portable
+     .theme.css file. Source: assets/pokemon-discord-background.webp.
      To disable artwork: set --pokemon-bg-image to linear-gradient(transparent, transparent)
      so the layered gradient fallback remains visible (avoid bare `none` in multi-layer lists).
      To use your own image: replace with url("https://...") you control — do not use
      invented/placeholder hosts. */
-  --pokemon-bg-image: """
+  --pokemon-bg-image: """,
+    ),
+    ArtworkSlot(
+        key="guild",
+        asset=ROOT / "assets" / "pokemon-guild-panel.webp",
+        var_name="--pokemon-guild-image",
+        header="""/* ARTWORK:guild — vertical companion art for the server list column.
+     Embedded data URI; source assets/pokemon-guild-panel.webp. */
+  --pokemon-guild-image: """,
+    ),
+    ArtworkSlot(
+        key="members",
+        asset=ROOT / "assets" / "pokemon-members-panel.webp",
+        var_name="--pokemon-members-image",
+        header="""/* ARTWORK:members — vertical companion art for the members column.
+     Embedded data URI; source assets/pokemon-members-panel.webp. */
+  --pokemon-members-image: """,
+    ),
+    ArtworkSlot(
+        key="chat",
+        asset=ROOT / "assets" / "pokemon-chat-accent.webp",
+        var_name="--pokemon-chat-accent-image",
+        header="""/* ARTWORK:chat — dense multi-character chat scene (center populated; messages use local scrims).
+     Embedded data URI; source assets/pokemon-chat-accent.webp. */
+  --pokemon-chat-accent-image: """,
+    ),
+)
+
+
+def data_uri_for(asset: Path) -> str:
+    data = base64.b64encode(asset.read_bytes()).decode("ascii")
+    return f'url("data:image/webp;base64,{data}")'
+
+
+def replace_or_insert_slot(css: str, slot: ArtworkSlot) -> tuple[str, str]:
+    """Replace an existing ARTWORK:<key> block, or insert after prior slots / tokens."""
+    if not slot.asset.is_file():
+        raise FileNotFoundError(f"Missing asset: {slot.asset}")
+
+    uri = data_uri_for(slot.asset)
+    replacement = slot.header + uri + ";"
+
+    # Healthy replace: comment marker through the full quoted url(...) declaration.
+    token_pattern = re.compile(
+        rf"/\* ARTWORK:{re.escape(slot.key)}\b.*?\*/\s*{re.escape(slot.var_name)}:\s*url\(\"[^\"]*\"\)\s*;",
+        flags=re.S,
+    )
+    css2, n = token_pattern.subn(replacement, css, count=1)
+    if n == 1:
+        return css2, "replace"
+
+    # Legacy main background block (pre-1.1.0 comment style).
+    if slot.key == "main":
+        legacy = re.compile(
+            r"/\* Background artwork.*?\*/\s*--pokemon-bg-image:\s*url\(\"[^\"]*\"\)\s*;",
+            flags=re.S,
+        )
+        css2, n = legacy.subn(replacement, css, count=1)
+        if n == 1:
+            return css2, "legacy-replace"
+
+        repair = re.compile(
+            r"/\* Background artwork.*?(?=\n\s*--pokemon-bg-overlay:)"
+            r"|/\* ARTWORK:main\b.*?(?=\n\s*--pokemon-bg-overlay:)",
+            flags=re.S,
+        )
+        css2, n = repair.subn(replacement + "\n ", css, count=1)
+        if n == 1:
+            return css2, "repair"
+
+    # Insert new slots before --pokemon-bg-overlay (after main image declaration).
+    insert_at = re.search(r"\n\s*--pokemon-bg-overlay:", css)
+    if insert_at:
+        css2 = css[: insert_at.start()] + "\n\n  " + replacement + css[insert_at.start() :]
+        return css2, "insert"
+
+    raise RuntimeError(f"Could not locate insertion point for ARTWORK:{slot.key}")
 
 
 def main() -> int:
-    if not ASSET.is_file():
-        print(f"Missing asset: {ASSET}", file=sys.stderr)
-        return 1
     if not THEME.is_file():
         print(f"Missing theme: {THEME}", file=sys.stderr)
         return 1
 
-    data = base64.b64encode(ASSET.read_bytes()).decode("ascii")
-    uri = f'url("data:image/webp;base64,{data}")'
-    replacement = HEADER + uri + ";"
-
     css = THEME.read_text(encoding="utf-8")
-    css2, n = TOKEN_PATTERN.subn(replacement, css, count=1)
-    mode = "replace"
-    if n != 1:
-        css2, n = REPAIR_PATTERN.subn(replacement + "\n ", css, count=1)
-        mode = "repair"
-        if n != 1:
+    modes: list[str] = []
+    try:
+        for slot in SLOTS:
+            css, mode = replace_or_insert_slot(css, slot)
+            modes.append(f"{slot.key}:{mode}")
             print(
-                "Could not locate --pokemon-bg-image artwork block to replace or repair.",
-                file=sys.stderr,
+                f"Embedded {slot.asset.name} ({slot.asset.stat().st_size} bytes) "
+                f"-> {slot.var_name} ({len(base64.b64encode(slot.asset.read_bytes()))} b64) via {mode}"
             )
-            return 1
+    except (FileNotFoundError, RuntimeError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
-    css2 = re.sub(r"(@version\s+)[\d.]+", r"\g<1>1.0.3", css2, count=1)
-    THEME.write_text(css2, encoding="utf-8", newline="\n")
-    print(
-        f"Embedded {ASSET.name} ({ASSET.stat().st_size} bytes) -> data URI "
-        f"({len(data)} b64 chars) via {mode}"
-    )
-    print("Theme version set to 1.0.3")
+    css, n = re.subn(r"(@version\s+)[\d.]+", rf"\g<1>{THEME_VERSION}", css, count=1)
+    if n != 1:
+        print("Warning: could not update @version", file=sys.stderr)
+
+    THEME.write_text(css, encoding="utf-8", newline="\n")
+    print(f"Theme version set to {THEME_VERSION}")
+    print("Modes: " + ", ".join(modes))
     return 0
 
 

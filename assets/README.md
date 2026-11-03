@@ -2,23 +2,23 @@
 
 | File | Format | Dimensions | Approx. size | Role |
 |------|--------|------------|--------------|------|
-| `pokemon-discord-background.webp` | WebP | 1280 × 720 | ~36 KB | Source artwork embedded into `MidnightPulse.theme.css` |
+| `pokemon-discord-background.webp` | WebP | ~1200 × 675 | ~76 KB | Main multi-character night scene |
+| `pokemon-guild-panel.webp` | WebP | ~420 × 747 | ~49 KB | Server-list column art |
+| `pokemon-members-panel.webp` | WebP | ~420 × 747 | ~46 KB | Members column art |
+| `pokemon-chat-accent.webp` | WebP | ~1200 × 675 | ~55 KB | Dense chat-column scene |
+| `mp-*-v13-source.jpg` | JPEG | original gen | larger | Regeneration sources (not required to install) |
 
 ## Loader reality
 
-BetterDiscord and Vencord inject theme CSS without a reliable theme-file base URL for relative `url(...)` paths. Local `file://` references are also generally unreliable.
+BetterDiscord and Vencord inject theme CSS without a reliable theme-file base URL. Midnight Pulse embeds each WebP as a `data:image/webp;base64,...` value. **Install only `MidnightPulse.theme.css`.**
 
-Midnight Pulse therefore embeds this WebP as a `data:image/webp;base64,...` value in `--pokemon-bg-image`. **You do not need to copy this folder into the themes directory for installation** — only `MidnightPulse.theme.css`.
-
-## Regenerate the embed
-
-After replacing this WebP:
+## Regenerate embeds
 
 ```bash
-python scripts/embed_background.py
-python scripts/qa_check.py
+python3 scripts/embed_background.py
+python3 scripts/qa_check.py
 ```
 
 ## Optimization
 
-Subdued night scene converted to WebP (quality ~82) for a small embed footprint.
+Recognizable multi-character compositions converted to WebP (quality ~74–76) for a portable single-file theme.

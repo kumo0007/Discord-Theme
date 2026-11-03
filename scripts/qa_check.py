@@ -10,9 +10,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 THEME = ROOT / "MidnightPulse.theme.css"
-ASSET = ROOT / "assets" / "pokemon-discord-background.webp"
 README = ROOT / "README.md"
 QA_DOC = ROOT / "QA-CHECKLIST.md"
+
+ASSETS = {
+    "main": ROOT / "assets" / "pokemon-discord-background.webp",
+    "guild": ROOT / "assets" / "pokemon-guild-panel.webp",
+    "members": ROOT / "assets" / "pokemon-members-panel.webp",
+    "chat": ROOT / "assets" / "pokemon-chat-accent.webp",
+}
+
+VAR_FOR_KEY = {
+    "main": "--pokemon-bg-image",
+    "guild": "--pokemon-guild-image",
+    "members": "--pokemon-members-image",
+    "chat": "--pokemon-chat-accent-image",
+}
 
 REQUIRED_META = ("@name", "@author", "@description", "@version")
 REQUIRED_TOKENS = (
@@ -20,14 +33,30 @@ REQUIRED_TOKENS = (
     "--pokemon-accent-primary",
     "--pokemon-accent-secondary",
     "--pokemon-bg-image",
+    "--pokemon-guild-image",
+    "--pokemon-members-image",
+    "--pokemon-chat-accent-image",
     "--pokemon-bg-fallback",
     "--pokemon-bg-overlay",
+    "--pokemon-star-dust",
+    "--pokemon-chat-readability",
+    "--pokemon-message-scrim",
+    "--pokemon-message-scrim-hover",
+    "--pokemon-panel-scrim",
     "--pokemon-focus-ring",
     "prefers-reduced-motion",
     "--background-primary",
     "--background-base-lowest",
     "--text-default",
+    "ARTWORK:main",
+    "ARTWORK:guild",
+    "ARTWORK:members",
+    "ARTWORK:chat",
 )
+
+# Multi-character embeds: ~280KB theme is expected; guard against runaway duplication.
+MAX_THEME_CHARS = 520_000
+MAX_ASSET_BYTES = 180_000
 
 
 def check_meta(css: str) -> list[str]:
@@ -110,46 +139,108 @@ def check_safety(css: str) -> list[str]:
     return errors
 
 
-def check_asset_strategy(css: str) -> list[str]:
+def check_one_embed(css: str, key: str, asset: Path, var_name: str) -> list[str]:
     errors: list[str] = []
-    uri_hits = re.findall(r"data:image/webp;base64,([A-Za-z0-9+/=]+)", css)
-    if len(uri_hits) != 1:
-        errors.append(f"Expected exactly one embedded WebP data URI, found {len(uri_hits)}")
-    match = re.search(
-        r"--pokemon-bg-image:\s*url\(\s*\"(data:image/webp;base64,([A-Za-z0-9+/=]+))\"\s*\)\s*;",
-        css,
+    pattern = re.compile(
+        rf"/\* ARTWORK:{re.escape(key)}\b.*?\*/\s*{re.escape(var_name)}:\s*url\(\s*\"(data:image/webp;base64,([A-Za-z0-9+/=]+))\"\s*\)\s*;",
+        flags=re.S,
     )
+    match = pattern.search(css)
     if not match:
-        errors.append("Expected embedded data:image/webp;base64 --pokemon-bg-image")
+        errors.append(f"Expected ARTWORK:{key} embedded data URI for {var_name}")
         return errors
     b64 = match.group(2)
     if len(b64) % 4 != 0:
-        errors.append(f"Background Base64 length not divisible by 4: {len(b64)}")
+        errors.append(f"{key}: Base64 length not divisible by 4: {len(b64)}")
     try:
         raw = base64.b64decode(b64, validate=True)
     except Exception as exc:  # noqa: BLE001
-        errors.append(f"Background data URI is not valid base64: {exc}")
+        errors.append(f"{key}: data URI is not valid base64: {exc}")
         return errors
     if raw[:4] != b"RIFF" or raw[8:12] != b"WEBP":
-        errors.append("Embedded background is not a WebP payload")
-    if not ASSET.is_file():
-        errors.append(f"Source asset missing: {ASSET}")
+        errors.append(f"{key}: embedded payload is not WebP")
+    if not asset.is_file():
+        errors.append(f"Source asset missing: {asset}")
     else:
-        source = ASSET.read_bytes()
-        if raw != source:
-            errors.append("Embedded data URI does not match assets/pokemon-discord-background.webp")
-        # Guard against embed-script duplication blowups (~48k b64 => theme ~70k chars).
-        if len(css) > 100_000:
-            errors.append(
-                f"Theme file unexpectedly large ({len(css)} chars); possible duplicate embed"
-            )
-    if css.count("--pokemon-bg-image:") != 1:
-        errors.append("Duplicate or missing --pokemon-bg-image declarations")
-    if "--pokemon-bg-fallback" not in css or "--pokemon-bg-overlay" not in css:
-        errors.append("Gradient overlay/fallback tokens missing")
+        if raw != asset.read_bytes():
+            errors.append(f"{key}: embedded data URI does not match {asset.name}")
+        if asset.stat().st_size > MAX_ASSET_BYTES:
+            errors.append(f"{key}: asset larger than budget ({asset.stat().st_size} bytes)")
+    if css.count(f"{var_name}:") != 1:
+        errors.append(f"Duplicate or missing {var_name} declarations")
+    return errors
+
+
+def check_asset_strategy(css: str) -> list[str]:
+    errors: list[str] = []
+    uri_hits = re.findall(r"data:image/webp;base64,([A-Za-z0-9+/=]+)", css)
+    if len(uri_hits) != len(ASSETS):
+        errors.append(
+            f"Expected exactly {len(ASSETS)} embedded WebP data URIs, found {len(uri_hits)}"
+        )
+    for key, asset in ASSETS.items():
+        errors.extend(check_one_embed(css, key, asset, VAR_FOR_KEY[key]))
+    if len(css) > MAX_THEME_CHARS:
+        errors.append(
+            f"Theme file unexpectedly large ({len(css)} chars); possible duplicate embed"
+        )
+    for token in ("--pokemon-bg-fallback", "--pokemon-bg-overlay",
+    "--pokemon-star-dust", "--pokemon-chat-readability"):
+        if token not in css:
+            errors.append(f"Missing atmosphere token: {token}")
     code = strip_comments(css)
     if "background-attachment: fixed" in code or "background-attachment:fixed" in code:
         errors.append("background-attachment:fixed should remain removed (Electron issues)")
+    return errors
+
+
+def relative_luminance(hex_color: str) -> float:
+    h = hex_color.lstrip("#")
+    r, g, b = (int(h[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+    def chan(c: float) -> float:
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b)
+
+
+def contrast_ratio(fg: str, bg: str) -> float:
+    l1 = relative_luminance(fg)
+    l2 = relative_luminance(bg)
+    lighter, darker = max(l1, l2), min(l1, l2)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def check_contrast(css: str) -> list[str]:
+    errors: list[str] = []
+    # Spot-check design tokens (solid colors) for body text readability.
+    pairs = [
+        ("--pokemon-text-primary", "--pokemon-bg-main", 6.0),
+        ("--pokemon-text-secondary", "--pokemon-bg-secondary", 4.5),
+        ("--pokemon-text-muted", "--pokemon-bg-main", 3.0),
+        ("--pokemon-text-link", "--pokemon-bg-main", 4.5),
+    ]
+    values: dict[str, str] = {}
+    for token, _, _ in pairs:
+        m = re.search(rf"{re.escape(token)}:\s*(#[0-9a-fA-F]{{6}})", css)
+        if not m:
+            errors.append(f"Missing solid color for contrast check: {token}")
+            continue
+        values[token] = m.group(1)
+    for bg_token in ("--pokemon-bg-main", "--pokemon-bg-secondary"):
+        m = re.search(rf"{re.escape(bg_token)}:\s*(#[0-9a-fA-F]{{6}})", css)
+        if not m:
+            errors.append(f"Missing solid color for contrast check: {bg_token}")
+            continue
+        values[bg_token] = m.group(1)
+    for fg, bg, minimum in pairs:
+        if fg not in values or bg not in values:
+            continue
+        ratio = contrast_ratio(values[fg], values[bg])
+        if ratio < minimum:
+            errors.append(f"Contrast {fg} on {bg} is {ratio:.2f}:1 (< {minimum}:1)")
+        else:
+            print(f"CONTRAST OK: {fg} on {bg} = {ratio:.2f}:1")
     return errors
 
 
@@ -167,6 +258,8 @@ def check_docs() -> list[str]:
         "Disable",
         "background",
         "Terms of Service",
+        "multi-character",
+        "pokemon-guild-panel",
     ]
     for snippet in required_snippets:
         if snippet not in text:
@@ -180,14 +273,14 @@ def main() -> int:
 
     if not THEME.is_file():
         failures.append(f"Missing theme file: {THEME}")
-    if not ASSET.is_file():
-        failures.append(f"Missing asset: {ASSET}")
-    else:
-        print(f"ASSET OK: {ASSET.name} ({ASSET.stat().st_size} bytes)")
-        if ASSET.stat().st_size > 1_500_000:
-            failures.append(f"Asset larger than expected budget: {ASSET.stat().st_size} bytes")
     if not QA_DOC.is_file():
         failures.append("Missing QA-CHECKLIST.md")
+
+    for key, asset in ASSETS.items():
+        if not asset.is_file():
+            failures.append(f"Missing asset: {asset}")
+        else:
+            print(f"ASSET OK: {asset.name} ({asset.stat().st_size} bytes)")
 
     if THEME.is_file():
         css = THEME.read_text(encoding="utf-8")
@@ -200,10 +293,11 @@ def main() -> int:
             failures.append(err)
         for err in check_asset_strategy(css):
             failures.append(err)
+        for err in check_contrast(css):
+            failures.append(err)
         for token in REQUIRED_TOKENS:
             if token not in css:
                 failures.append(f"Missing expected token/feature: {token}")
-        # Overly broad username force-color should stay removed
         if re.search(r"\[class\*=\"username_\"\]\s*\{[^}]*color:", css):
             failures.append("Username color override present; role colors would break")
 
